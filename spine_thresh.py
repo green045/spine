@@ -58,6 +58,19 @@ for file in total_file:
 
     gray_image=cv2.imread('{}/{}'.format(from_dir_path, file), 0)
 
+
+    # 計算直方圖每個 bin 的數值
+    hist = cv2.calcHist([gray_image], [0], None, [256], [0, 256])
+
+    # 畫出直方圖
+    plt.plot(hist,color = 'r')
+    plt.xlim([0, 256])
+    plt.ylim([0, 200000])
+    save_file_name ='{}/cor_hist_{}.png'.format(to_dir_path,file)
+    plt.savefig(save_file_name )
+    plt.close()
+            
+
     ret,thresh1=cv2.threshold(gray_image,254,255,cv2.THRESH_BINARY)
     find_line_frame = thresh1.copy()
     find_line_frame = cv2.cvtColor(find_line_frame,cv2.COLOR_GRAY2RGB)
@@ -81,8 +94,33 @@ for file in total_file:
     main_spine_contour = np.zeros(gray_image.shape, np.uint8)
     cv2.drawContours(main_spine_contour, [max_contour], 0, (255, 255, 255), -1)
 
+    #找影像最上黑邊
+    #上邊
+    rows_pixels = []
+    for i in range(int(gray_image.shape[0]*0.3)):
+        temp_count = cv2.countNonZero(gray_image[i:i+1, :])
+        rows_pixels.append(temp_count)
+
+    rows_pixels = np.array(rows_pixels)
     img_top = 0
-    img_btn = spine_contour.shape[0]
+    if np.any(np.where(rows_pixels==0)):  
+
+        img_top = np.max( np.where(rows_pixels==0) ) 
+
+    #img_btn = spine_contour.shape[0]
+    #下邊
+    rows_pixels = []
+    for i in range(gray_image.shape[0] -int(gray_image.shape[0]*0.3),gray_image.shape[0]):
+        temp_count = cv2.countNonZero(gray_image[i:i+1, :])
+        rows_pixels.append(temp_count)
+
+    rows_pixels = np.array(rows_pixels)
+
+    img_btn =gray_image.shape[0]
+    if np.any(np.where(rows_pixels==0)):
+        img_btn = gray_image.shape[0] -int(gray_image.shape[0]*0.3) + np.min(np.where(rows_pixels==0))
+
+
     #統計每行pixel數，找出主骨幹左右邊界，為了將影像分為左右邊肋骨
     cols_pixels = []
     for i in range(spine_contour.shape[1]):
@@ -90,16 +128,16 @@ for file in total_file:
         cols_pixels.append(temp_count)
 
     cols_pixels = np.array(cols_pixels)
-    '''
+    
 
     for idx in range(len(cols_pixels)):
         plt.plot(idx, cols_pixels[idx], '-bo')
-    filename = "./binary/cols_pixels.png"
+    filename = '{}/col_pixels_{}.png'.format(to_dir_path,file)
     plt.savefig(filename)
     plt.close()
-    '''
+    
 
-    cols_pixels[np.where(cols_pixels[:]<spine_contour.shape[0]*0.9)] = 0
+    cols_pixels[np.where(cols_pixels[:]<spine_contour.shape[0]*2/3)] = 0
 
     '''
     for idx in range(len(cols_pixels)):
@@ -110,8 +148,7 @@ for file in total_file:
     '''
 
 
-    #左邊肋骨的邊界與右邊肋骨的邊界
-    
+    #左邊肋骨的邊界與右邊肋骨的邊界    
 
     
     if ~np.any(np.where(cols_pixels>0)):
@@ -141,8 +178,12 @@ for file in total_file:
         bottom_edge = int(spine_contour.shape[0]/2) + np.min( np.where(rows_pixels[int(spine_contour.shape[0]/2):]>spine_contour.shape[1]*0.9))
     top_edge = img_top#int(bottom_edge - spine_contour.shape[0]/2)
 
+
     #肋骨們
-    ribs_img = opening - main_spine_contour 
+    # left_edge -= 5
+    # right_edge += 5
+    ribs_img = opening.copy() #- main_spine_contour 
+    ribs_img[top_edge  :bottom_edge ,left_edge: right_edge] =0
     kernel = np.ones((1,3),np.uint8)
     #ribs_img = cv2.morphologyEx(ribs_img, cv2.MORPH_OPEN, kernel)
     main_spine = cv2.erode(opening,kernel,iterations = 1)
@@ -237,6 +278,8 @@ for file in total_file:
         if real_y and first_tag:
             first_tag = False
             or_img_array = np.array(img)
+
+            '''
             #找影像最上黑邊
             #上邊
             rows_pixels = []
@@ -249,7 +292,9 @@ for file in total_file:
             if np.any(np.where(rows_pixels==0)):  
 
                 img_top = np.max( np.where(rows_pixels==0) ) 
-            real_y += img_top   
+            
+            real_y += img_top 
+            '''  
         if real_y:         
             cv2.line(tmp_line_frame,(0,real_y),(tmp_line_frame.shape[1],real_y),(255,0,0),5)
         cv2.imwrite('{}/res_{}'.format(save_path,img_file), tmp_line_frame)

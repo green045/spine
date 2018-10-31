@@ -5,6 +5,7 @@ import tkinter as tk
 from tkinter import filedialog as fd
 import pydicom
 import cv2
+from matplotlib import pyplot as plt
 import os
 import json
 
@@ -65,7 +66,7 @@ class DicomToPng:
 
 
 
-
+        hist_path =r'D:\SublimeWorkSpace\spine\histo'
         total_dir = os.listdir(self.dicom_file_path)
         print(total_dir)
 
@@ -75,9 +76,9 @@ class DicomToPng:
             total_file = self.find_img_files(from_dir_path)
 
 
-            # to_dir_path = self.data_output_path+'/'+each_dir
-            # if not os.path.isdir(to_dir_path):
-            #     os.mkdir(to_dir_path)
+            hist_dir_path = hist_path+'/'+each_dir
+            if not os.path.isdir(hist_dir_path):
+                os.mkdir(hist_dir_path)
 
             first_img_tag = True
             side_set =None
@@ -89,6 +90,18 @@ class DicomToPng:
 
             for file in total_file:
                 img =cv2.imread('{}/{}'.format(from_dir_path, file), 0)
+                # 計算直方圖每個 bin 的數值
+                hist = cv2.calcHist([img], [0], None, [256], [0, 256])
+
+                # 畫出直方圖
+                plt.plot(hist,color = 'r')
+                plt.xlim([0, 256])
+                plt.ylim([0, 200000])
+                save_file_name = hist_dir_path +'/hist_'+ file
+                plt.savefig(save_file_name )
+                plt.close()
+
+
                 or_img_array = np.array(img)
                 #blur = cv2.blur(img,(1,3))
                 ret,thresh1=cv2.threshold(img,0,255,cv2.THRESH_BINARY)
@@ -123,19 +136,19 @@ class DicomToPng:
                          
 
                     #左右邊
-                    img_left=int(img_array.shape[1]/2)
+                    img_left=int(img_array.shape[1]/2)  #只取後半部肋骨
                     img_right=img_array.shape[1]        
                     
                     #去除不明直線
                     or_img_array = self.remove_lines(or_img_array,img_top,img_bottom)
 
-                    side_set = np.array([or_img_array[img_top:img_bottom,img_left:img_right]])
+                    side_set = np.array([or_img_array[0:img_array.shape[0],img_left:img_right]])
                     first_img_tag=False
                 else:
                     #去除右邊的不明直線=  =
                     or_img_array = self.remove_lines(or_img_array,img_top,img_bottom)
                     #print(side_set.shape,or_img_array[img_left:img_right,img_top:img_bottom].shape)
-                    side_set =np.concatenate((side_set, [or_img_array[img_top:img_bottom,img_left:img_right]]))
+                    side_set =np.concatenate((side_set, [or_img_array[0:img_array.shape[0],img_left:img_right]]))
                 #cv2.imwrite('./test/img/new_{}'.format(file), or_img_array)
             print('側面照維數：',side_set.shape)
             
@@ -171,7 +184,20 @@ class DicomToPng:
             one_img = one_img.swapaxes(0,1)
             print('維數：',one_img.shape)
             cv2.imwrite('{}/{}_coronal.png'.format(self.data_output_path,each_dir), one_img)
+            
 
+            '''
+            # 計算直方圖每個 bin 的數值
+            hist = cv2.calcHist([one_img], [0], None, [256], [0, 256])
+
+            # 畫出直方圖
+            plt.plot(hist,color = 'r')
+            plt.xlim([0, 256])
+            plt.ylim([0, 200000])
+            save_file_name ='{}/{}_coronal_hist.png'.format(hist_path,each_dir)
+            plt.savefig(save_file_name )
+            plt.close()
+            '''
 
 
 
