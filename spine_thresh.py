@@ -4,9 +4,17 @@ from matplotlib import pyplot as plt
 import image_analysis
 import os
 
-def find_rids_y_val(rect_img,is_left=True):
+def find_rids_y_val(rect_img,opposite_img):
     #分為左邊肋骨及右邊肋骨，計算不同
-    
+
+    '''
+    #水平翻轉,rect_img肋骨靠左對齊,如右肋骨圖
+    if is_left:
+        rect_img = cv2.flip(rect_img,1)
+    else:
+        opposite_img = cv2.flip(opposite_img,1)
+    '''
+
     #從所有輪廓鍾取出單純肋骨的輪廓
     rid_contour=[]
     _, contours, hierarchy = cv2.findContours(rect_img, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -16,34 +24,59 @@ def find_rids_y_val(rect_img,is_left=True):
         area_bound = rect_img.shape[0]*rect_img.shape[1]*0.005
         for each_contour in contours:
             area = cv2.contourArea(each_contour)
-            rect = cv2.minAreaRect(each_contour)            
+            if area<area_bound:
+                continue
+
+            rect = cv2.minAreaRect(each_contour)   
+            box = cv2.boxPoints(rect)
+            box = np.int0(box)         
             W = rect[1][0]
             H = rect[1][1]
             angle = rect[2]
             
+            #框格mask
+            rect_mask = np.zeros(rect_img.shape, np.uint8)
+            cv2.drawContours(rect_mask, [box], 0, 255, -1)
+            #rect_mask = cv2.cvtColor(rect_mask, cv2.COLOR_BGR2GRAY)
+            _, rect_mask = cv2.threshold(rect_mask, 127, 1, cv2.THRESH_BINARY)
+
+            min_w_size = rect_img.shape[1]
+            if opposite_img.shape[1] <rect_img.shape[1]:
+                min_w_size = opposite_img.shape[1]
+           
+            temp_oppo = opposite_img[:,:min_w_size] * rect_mask[:, :min_w_size]
+            opp_count = cv2.countNonZero(temp_oppo)
+
+            opp_count = opp_count/(W*H)
+            ori_count = area / (W*H)
+            if (opp_count < 0.1):
+                continue
+
+            '''
             if is_left:
-                if area>area_bound and W/H >2 and -70<angle and angle<-20:
+                if W/H >2 and -70<angle and angle<-20:
                     rid_contour.append(each_contour)
 
             else:
-                if area>area_bound and H/W >2 and -70<angle and angle<-20:                  
-                    rid_contour.append(each_contour)
+            '''
+            if H/W >2 and -70<angle and angle<-20:                  
+                rid_contour.append(each_contour)
             
             
         #rect_img = cv2.cvtColor(rect_img,cv2.COLOR_GRAY2RGB)
             
         #計算每根肋骨的頂點，並找出所有肋骨中最低的頂點y值
-        max_y = 0
-        max_idx =0
+        res_y = 0
+        res_idx =0
         for idx,contour in enumerate(rid_contour):
             extTop = tuple(contour[contour[:, :, 1].argmin()][0])           
-            if extTop[1] > max_y:
-                max_y = extTop[1]
-                max_idx = idx
+            if extTop[1] > res_y:
+                res_y = extTop[1]
+                res_idx = idx
 
         if(rid_contour ==[]):
-            return None,max_y,max_idx
-        return rid_contour,max_y,max_idx
+            return None,res_y,res_idx
+        return rid_contour,res_y,res_idx
 
 def find_img_files(directory):
         return (f for f in os.listdir(directory) if f.endswith('.jpg') or f.endswith('.png'))
@@ -191,24 +224,42 @@ for file in total_file:
     if cv2.countNonZero(ribs_img) <50:
         continue
 
-    #左邊肋骨
+    #取出左右肋骨
     left_img =ribs_img[ top_edge  :bottom_edge ,0 : left_edge].copy()
+    right_img =ribs_img[ top_edge :bottom_edge ,right_edge : ribs_img.shape[1]].copy()
+
+
+    #水平翻轉,rect_img肋骨靠左對齊,如右肋骨圖
+    left_img = cv2.flip(left_img,1)
+
+
+
+    #左邊肋骨
     if cv2.countNonZero(left_img) <50:
         continue
-    left_rid_contour,left_rids_y,left_contour_idx =find_rids_y_val(left_img,is_left=True)
+    left_rid_contour,left_rids_y,left_contour_idx =find_rids_y_val(left_img,right_img)
     #print(left_rids_y)
 
+
+
+    
 
     #圈出肋骨外接矩形
     draw_img = cv2.cvtColor(ribs_img, cv2.COLOR_GRAY2BGR)#gray_image * ribs_img[:, :] 
     #draw_img = cv2.cvtColor(draw_img, cv2.COLOR_GRAY2RGB)
     draw_left_img =draw_img[ top_edge  :bottom_edge ,0 : left_edge]
+    draw_left_img = cv2.flip(draw_left_img,1)
+    draw_right_img =draw_img[ top_edge  :bottom_edge ,right_edge : ribs_img.shape[1]]
+
+
+
     if left_rid_contour!=None:
         for idx , contour in enumerate(left_rid_contour):
             #圈出輪廓的外接矩形  
             rect = cv2.minAreaRect(contour)
             box = cv2.boxPoints(rect)
             box = np.int0(box)  
+            cv2.drawContours(draw_right_img, [box], 0, (255, 0 , 255), 2)
             if(left_contour_idx == idx) :
                 cv2.drawContours(draw_left_img, [box], 0, (255, 0 , 0), 2)
             else:
@@ -217,20 +268,21 @@ for file in total_file:
 
 
     #右邊肋骨
-    right_img =ribs_img[ top_edge :bottom_edge ,right_edge : ribs_img.shape[1]].copy()
+    
     if cv2.countNonZero(right_img) <50:
         continue
-    right_rid_contour,right_rids_y,right_contour_idx =find_rids_y_val(right_img,is_left=False)
+    right_rid_contour,right_rids_y,right_contour_idx =find_rids_y_val(right_img,left_img)
     #print(right_rids_y)
 
 
-    draw_right_img =draw_img[ top_edge  :bottom_edge ,right_edge : ribs_img.shape[1]]
+    
     if right_rid_contour!=None:
         for idx , contour in enumerate(right_rid_contour):
             #圈出輪廓的外接矩形  
             rect = cv2.minAreaRect(contour)
             box = cv2.boxPoints(rect)
             box = np.int0(box)  
+            cv2.drawContours(draw_left_img, [box], 0, (255,0 , 255), 2)
             if(right_contour_idx == idx):
                 cv2.drawContours(draw_right_img, [box], 0, (255, 0 , 0), 2)
             else:
