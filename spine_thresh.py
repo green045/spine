@@ -50,7 +50,7 @@ def find_rids_y_val(rect_img,opposite_img):
             opp_count = opp_count/(W*H)
             ori_count = area / (W*H)
             if (opp_count < 0.1):
-                continue
+                continue 
 
             '''
             if is_left:
@@ -95,14 +95,18 @@ for file in total_file:
     # 計算直方圖每個 bin 的數值
     hist = cv2.calcHist([gray_image], [0], None, [256], [0, 256])
 
-    # 畫出直方圖
+
+
+
+    # 畫出直方圖，圖片的histogram
+    '''
     plt.plot(hist,color = 'r')
     plt.xlim([0, 256])
     plt.ylim([0, 200000])
     save_file_name ='{}/cor_hist_{}.png'.format(to_dir_path,file)
     plt.savefig(save_file_name )
     plt.close()
-            
+    '''        
 
     ret,thresh1=cv2.threshold(gray_image,254,255,cv2.THRESH_BINARY)
     find_line_frame = thresh1.copy()
@@ -162,13 +166,14 @@ for file in total_file:
 
     cols_pixels = np.array(cols_pixels)
     
-
+    #畫直方圖，每行的colunm數
+    '''
     for idx in range(len(cols_pixels)):
         plt.plot(idx, cols_pixels[idx], '-bo')
     filename = '{}/col_pixels_{}.png'.format(to_dir_path,file)
     plt.savefig(filename)
     plt.close()
-    
+    '''
 
     cols_pixels[np.where(cols_pixels[:]<spine_contour.shape[0]*2/3)] = 0
 
@@ -259,7 +264,7 @@ for file in total_file:
             rect = cv2.minAreaRect(contour)
             box = cv2.boxPoints(rect)
             box = np.int0(box)  
-            cv2.drawContours(draw_right_img, [box], 0, (255, 0 , 255), 2)
+            #cv2.drawContours(draw_right_img, [box], 0, (255, 0 , 255), 2)
             if(left_contour_idx == idx) :
                 cv2.drawContours(draw_left_img, [box], 0, (255, 0 , 0), 2)
             else:
@@ -282,13 +287,15 @@ for file in total_file:
             rect = cv2.minAreaRect(contour)
             box = cv2.boxPoints(rect)
             box = np.int0(box)  
-            cv2.drawContours(draw_left_img, [box], 0, (255,0 , 255), 2)
+            #cv2.drawContours(draw_left_img, [box], 0, (255,0 , 255), 2)
             if(right_contour_idx == idx):
                 cv2.drawContours(draw_right_img, [box], 0, (255, 0 , 0), 2)
             else:
                 cv2.drawContours(draw_right_img, [box], 0, (0, 255, 0), 2)
 
-
+    #把左側肋骨轉回來
+    draw_left_img = cv2.flip(draw_left_img,1)
+                
     real_y=None
     if left_rids_y ==0 and right_rids_y ==0:
         real_y=None
@@ -297,8 +304,8 @@ for file in total_file:
     elif right_rids_y ==0:
         real_y = top_edge + (int)(left_rids_y)
     else:
-        real_y = top_edge + left_rids_y if left_rids_y>right_rids_y else right_rids_y
-
+        real_y = (top_edge + left_rids_y) if left_rids_y>right_rids_y else top_edge +right_rids_y
+        print(file,real_y,top_edge +left_rids_y,top_edge +right_rids_y)
     
     if real_y:
         
@@ -320,7 +327,7 @@ for file in total_file:
     if not os.path.isdir(save_path):
         os.mkdir(save_path)
     total_file = os.listdir(side_set_path)
-    print(total_file)
+    #print(total_file)
 
     first_tag = True
     for img_file in total_file:
@@ -330,23 +337,7 @@ for file in total_file:
         if real_y and first_tag:
             first_tag = False
             or_img_array = np.array(img)
-
-            '''
-            #找影像最上黑邊
-            #上邊
-            rows_pixels = []
-            for i in range(int(or_img_array.shape[0]*0.3)):
-                temp_count = cv2.countNonZero(or_img_array[i:i+1, :])
-                rows_pixels.append(temp_count)
-
-            rows_pixels = np.array(rows_pixels)
-            img_top = 0
-            if np.any(np.where(rows_pixels==0)):  
-
-                img_top = np.max( np.where(rows_pixels==0) ) 
-            
-            real_y += img_top 
-            '''  
+             
         if real_y:         
             cv2.line(tmp_line_frame,(0,real_y),(tmp_line_frame.shape[1],real_y),(255,0,0),5)
         cv2.imwrite('{}/res_{}'.format(save_path,img_file), tmp_line_frame)
@@ -355,8 +346,8 @@ for file in total_file:
 
     #影像處理的步驟
     
-    titles = ['Image','BINARY','opening_contour','main_spine','ribs_img','left_ribs','right_ribs','final']
-    images = [gray_image, thresh1,opening,main_spine_contour,ribs_img,draw_left_img,draw_right_img,find_line_frame]
+    titles = ['Image','BINARY','opening_contour','final','ribs_img','left_ribs','right_ribs']
+    images = [gray_image, thresh1,opening,find_line_frame,ribs_img,draw_left_img,draw_right_img]
     for i in range(len(titles)):
        plt.subplot(2,4,i+1),plt.imshow(images[i],'gray')
        plt.title(titles[i])
