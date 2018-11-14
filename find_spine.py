@@ -76,6 +76,28 @@ def find_rids_y_val(rect_img,opposite_img):
             return None,res_y,res_idx
         return rid_contour,res_y,res_idx
 
+def bb_intersection_over_union(boxA, boxB):
+    # determine the (x, y)-coordinates of the intersection rectangle
+    xA = max(boxA[0], boxB[0])
+    yA = max(boxA[1], boxB[1])
+    xB = min(boxA[2], boxB[2])
+    yB = min(boxA[3], boxB[3])
+ 
+    # compute the area of intersection rectangle
+    interArea = max(0, xB - xA + 1) * max(0, yB - yA + 1)
+ 
+    # compute the area of both the prediction and ground-truth
+    # rectangles
+    boxAArea = (boxA[2] - boxA[0] + 1) * (boxA[3] - boxA[1] + 1)
+    boxBArea = (boxB[2] - boxB[0] + 1) * (boxB[3] - boxB[1] + 1)
+ 
+    # compute the intersection over union by taking the intersection
+    # area and dividing it by the sum of prediction + ground-truth
+    # areas - the interesection area
+    iou = interArea / float(boxAArea + boxBArea - interArea)
+ 
+    # return the intersection over union value
+    return iou
 
 if __name__ == '__main__':
        
@@ -305,6 +327,9 @@ if __name__ == '__main__':
         total_file = os.listdir(each_dir_path)
         total_file = filter(lambda x: x.endswith('png'), total_file) #只抓png檔
 
+
+        spine_box_list = []
+        first_img = True
         for file_name in sorted(total_file):
             image = skimage.io.imread(os.path.join(each_dir_path, file_name))
 
@@ -317,12 +342,55 @@ if __name__ == '__main__':
 
 
             # Run detection
-            results = model.detect([ski_rect_img], verbose=1)
+            results = model.detect([ski_rect_img], verbose=0)
 
             # Visualize results
             r = results[0]
+
+            boxes = r['rois']
+            N = boxes.shape[0]
+            if not N:
+                continue
+            if first_img :
+                for each_box in boxes:
+                    spine_box_list.append(each_box)                    
+                first_img = False
+            else:
+                for each_box in boxes:
+                    list_num = len(spine_box_list)
+                    
+                    add_box_flag = True
+                    for compare_box in spine_box_list:
+                        IOU = bb_intersection_over_union(each_box, compare_box)
+                        if IOU > 1/4:
+                            add_box_flag = False
+                            break
+                    if add_box_flag:
+                        spine_box_list.append(each_box)
+            '''
             img_save_path = os.path.join(save_dir_path, 'res_'+file_name[4:])
             visualize.save_instances(img_save_path, ski_rect_img, r['rois'], r['masks'], r['class_ids'], 
                                         class_names)
+            '''
+        print("spine Num : " +str(len(spine_box_list)))
+        total_file = os.listdir(each_dir_path)
+        total_file = filter(lambda x: x.endswith('png'), total_file) #只抓png檔
+        for file_name in sorted(total_file):
+            
+            cv2_img = cv2.imread(os.path.join(each_dir_path, file_name))
+            #print(file_name)
+            cv2_rect =cv2_img.copy()
+            draw_image = cv2_rect[real_y:, :, :]
+            label ="L"
+            i = 1
+            spine_box_list = sorted(spine_box_list, key = lambda x : x[0])   # sort by y1
+            for spine_box in spine_box_list:
+                y1, x1, y2, x2 = spine_box
+                cv2.rectangle(draw_image,(x1,y1),(x2,y2),(0,255,0),2)
 
-    
+                cv2.putText(draw_image,label+str(i),(x2,y1), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,0,255),1.5,cv2.LINE_AA)
+                cv2.putText
+                i +=1
+
+            img_save_path = os.path.join(save_dir_path, 'res_'+file_name[4:])
+            cv2.imwrite(img_save_path, draw_image)
