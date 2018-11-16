@@ -4,7 +4,7 @@ import os
 import sys
 import random
 import math
-import numpy as np
+
 import matplotlib
 matplotlib.use('Agg') # Must be before importing matplotlib.pyplot or pylab!
 import matplotlib.pyplot as plt
@@ -16,6 +16,7 @@ import model as modellib
 import visualize
 import cv2
 import image_analysis
+import numpy as np
 
 def find_rids_y_val(rect_img,opposite_img):
     #分為左邊肋骨及右邊肋骨，計算不同    
@@ -372,7 +373,19 @@ if __name__ == '__main__':
             visualize.save_instances(img_save_path, ski_rect_img, r['rois'], r['masks'], r['class_ids'], 
                                         class_names)
             '''
-        print("spine Num : " +str(len(spine_box_list)))
+        spine_box_list = sorted(spine_box_list, key = lambda x : x[0])   # sort by y1       
+        print("spine Num : " +str(len(spine_box_list)))        
+        borns_mid_x = np.array([],dtype = np.int)
+        borns_mid_y = np.array([],dtype = np.int)
+        for spine_box in spine_box_list:
+            y1, x1, y2, x2 = spine_box
+            temp_mid_x = int((x1+x2)/2)
+            temp_mid_y = int( (y1+y2)/2)
+            borns_mid_x = np.append(borns_mid_x, temp_mid_x)    
+            borns_mid_y = np.append(borns_mid_y,temp_mid_y)
+        poly = np.poly1d(np.polyfit(borns_mid_x, borns_mid_y, 1)) #三次多項式
+        print(poly)
+
         total_file = os.listdir(each_dir_path)
         total_file = filter(lambda x: x.endswith('png'), total_file) #只抓png檔
         for file_name in sorted(total_file):
@@ -382,15 +395,17 @@ if __name__ == '__main__':
             cv2_rect =cv2_img.copy()
             draw_image = cv2_rect[real_y:, :, :]
             label ="L"
-            i = 1
-            spine_box_list = sorted(spine_box_list, key = lambda x : x[0])   # sort by y1
-            for spine_box in spine_box_list:
+            i = 1            
+            for idx,spine_box in enumerate(spine_box_list):
                 y1, x1, y2, x2 = spine_box
+                cv2.circle(draw_image, (borns_mid_x[idx], borns_mid_y[idx]), 3, (255, 0, 0), -1, 8, 0)
                 cv2.rectangle(draw_image,(x1,y1),(x2,y2),(0,255,0),2)
-
-                cv2.putText(draw_image,label+str(i),(x2,y1), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,0,255),1.5,cv2.LINE_AA)
+                cv2.putText(draw_image,label+str(i),(x2,y1), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,0,255),2,cv2.LINE_AA)
+                cv2.putText
                 cv2.putText
                 i +=1
-
+            for t in range(0, draw_image.shape[1], 1):
+                y_ = np.int(poly(t))
+                cv2.circle(draw_image, (t, y_), 1, (0, 0, 255), 1, 8, 0)
             img_save_path = os.path.join(save_dir_path, 'res_'+file_name[4:])
             cv2.imwrite(img_save_path, draw_image)
