@@ -100,6 +100,29 @@ def bb_intersection_over_union(boxA, boxB):
     # return the intersection over union value
     return iou
 
+
+def borns_modify(file_name,mid_x,csv_path =""):
+    #csv_writer = open(csv_path, 'a')
+    #csv_writer.write("X" + "," + "X2-X1" + "," + "mean" + "," + "std"+ '\n')
+    csv_writer.write(file_name+ '\n')
+    subX =[]
+    csv_writer.write("X: "+ ",")
+    for idx,x in enumerate(mid_x):
+        csv_writer.write(str(x)+ ",")
+        if idx>0:
+            subX.append(mid_x[idx] - mid_x[idx-1])
+
+    csv_writer.write('\n'+"subX: "+ ",")
+    for idx,x in enumerate(subX):
+        csv_writer.write(str(x)+ ",")
+
+    subX = np.array(subX)
+    abs_subX = np.abs(subX)
+    std = np.std(abs_subX)
+    mean = np.mean(abs_subX)
+    csv_writer.write('\n'+"mean: "+","+ str(mean)+","+"std: "+","+ str(std)+'\n')
+    #csv_writer.close()
+
 if __name__ == '__main__':
        
     
@@ -109,6 +132,11 @@ if __name__ == '__main__':
     # img_save_dir = args.save
     output_path = './result_spine'
     # Root directory of the project
+
+    csv_path ="./borns_result.csv"
+    csv_writer = open(csv_path, 'w')
+    
+
     ROOT_DIR = os.getcwd()
     # Directory to save logs and trained model
     MODEL_DIR = os.path.join(ROOT_DIR, "logs")
@@ -383,9 +411,15 @@ if __name__ == '__main__':
             temp_mid_y = int( (y1+y2)/2)
             borns_mid_x = np.append(borns_mid_x, temp_mid_x)    
             borns_mid_y = np.append(borns_mid_y,temp_mid_y)
+
+
+        
+        borns_modify(each_dir,borns_mid_x,csv_path)
+
+
         poly = np.poly1d(np.polyfit(borns_mid_x, borns_mid_y, 1)) #三次多項式
         print(poly)
-
+        csv_writer.write("poly: "+","+ str(poly)+'\n'+'\n'+'\n')
         total_file = os.listdir(each_dir_path)
         total_file = filter(lambda x: x.endswith('png'), total_file) #只抓png檔
         for file_name in sorted(total_file):
@@ -409,3 +443,4 @@ if __name__ == '__main__':
                 cv2.circle(draw_image, (t, y_), 1, (0, 0, 255), 1, 8, 0)
             img_save_path = os.path.join(save_dir_path, 'res_'+file_name[4:])
             cv2.imwrite(img_save_path, draw_image)
+    csv_writer.close()
