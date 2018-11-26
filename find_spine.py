@@ -382,25 +382,39 @@ if __name__ == '__main__':
                 continue
             if first_img :
                 for each_box in boxes:
-                    spine_box_list.append(each_box)                    
+                    spine_box_list.append([])
+                    spine_box_list[len(spine_box_list)-1].append(each_box)                    
                 first_img = False
             else:
                 for each_box in boxes:
-                    list_num = len(spine_box_list)
                     
                     add_box_flag = True
-                    for compare_box in spine_box_list:
+                    for box_idx in range(0,len(spine_box_list)):
+                        compare_box = spine_box_list[box_idx][0]
                         IOU = bb_intersection_over_union(each_box, compare_box)
                         if IOU > 1/4:
                             add_box_flag = False
-                            break
+                            spine_box_list[box_idx].append(each_box) 
                     if add_box_flag:
-                        spine_box_list.append(each_box)
+                        spine_box_list.append([])
+                        spine_box_list[len(spine_box_list)-1].append(each_box) 
             '''
             img_save_path = os.path.join(save_dir_path, 'res_'+file_name[4:])
             visualize.save_instances(img_save_path, ski_rect_img, r['rois'], r['masks'], r['class_ids'], 
                                         class_names)
             '''
+
+        #spine_box_list = np.array(spine_box_list)
+        temp_spine = []
+
+        for i in range(0,len(spine_box_list)):
+            tt = np.array(spine_box_list[i])
+            t = tt.mean(0)
+            temp_spine.append(t.astype(int).tolist())
+        spine_box_list = np.array(temp_spine)
+        print(spine_box_list)
+
+
         spine_box_list = sorted(spine_box_list, key = lambda x : x[0])   # sort by y1       
         print("spine Num : " +str(len(spine_box_list)))        
         borns_mid_x = np.array([],dtype = np.int)
@@ -417,7 +431,8 @@ if __name__ == '__main__':
         borns_modify(each_dir,borns_mid_x,csv_path)
 
 
-        poly = np.poly1d(np.polyfit(borns_mid_x, borns_mid_y, 1)) #三次多項式
+        # poly = np.poly1d(np.polyfit(borns_mid_x, borns_mid_y, 1)) #以x算y , 三次多項式
+        poly = np.poly1d(np.polyfit(borns_mid_y, borns_mid_x, 3)) #以y算x , 三次多項式
         print(poly)
         csv_writer.write("poly: "+","+ str(poly)+'\n'+'\n'+'\n')
         total_file = os.listdir(each_dir_path)
@@ -432,15 +447,18 @@ if __name__ == '__main__':
             i = 1            
             for idx,spine_box in enumerate(spine_box_list):
                 y1, x1, y2, x2 = spine_box
-                cv2.circle(draw_image, (borns_mid_x[idx], borns_mid_y[idx]), 3, (255, 0, 0), -1, 8, 0)
+                cv2.circle(draw_image, (borns_mid_x[idx], borns_mid_y[idx]), 3, (0, 255, 0), -1, 8, 0)
                 cv2.rectangle(draw_image,(x1,y1),(x2,y2),(0,255,0),2)
-                cv2.putText(draw_image,label+str(i),(x2,y1), cv2.FONT_HERSHEY_SIMPLEX, 0.5,(0,0,255),2,cv2.LINE_AA)
-                cv2.putText
-                cv2.putText
+                cv2.putText(draw_image,label+str(i),(x2,y1), cv2.FONT_HERSHEY_SIMPLEX, 0.7,(0,0,255),2,cv2.LINE_AA)                
                 i +=1
-            for t in range(0, draw_image.shape[1], 1):
-                y_ = np.int(poly(t))
-                cv2.circle(draw_image, (t, y_), 1, (0, 0, 255), 1, 8, 0)
+            #以x算y
+            # for t in range(0, draw_image.shape[1], 1):
+            #     y_ = np.int(poly(t))
+            #     cv2.circle(draw_image, (t, y_), 1, (0, 0, 255), 1, 8, 0)
+            #以y算x
+            for t in range(0, draw_image.shape[0], 1):
+                x_ = np.int(poly(t))
+                cv2.circle(draw_image, (x_, t), 2, (0, 0, 255), -1, 8, 0)
             img_save_path = os.path.join(save_dir_path, 'res_'+file_name[4:])
             cv2.imwrite(img_save_path, draw_image)
     csv_writer.close()
