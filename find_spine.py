@@ -101,27 +101,156 @@ def bb_intersection_over_union(boxA, boxB):
     return iou
 
 
-def borns_modify(file_name,mid_x,csv_path =""):
-    #csv_writer = open(csv_path, 'a')
-    #csv_writer.write("X" + "," + "X2-X1" + "," + "mean" + "," + "std"+ '\n')
-    csv_writer.write(file_name+ '\n')
+def borns_modify(ori_sipne_boxes,csv_flag = False,file_name="",csv_path =""):
+    
+
+    mid_x = np.array([],dtype = np.int)
+    mid_y = np.array([],dtype = np.int)
+    for spine_box in ori_sipne_boxes:
+        y1, x1, y2, x2 = spine_box
+        temp_mid_x = int((x1+x2)/2)
+        temp_mid_y = int( (y1+y2)/2)
+        mid_x = np.append(mid_x, temp_mid_x)    
+        mid_y = np.append(mid_y,temp_mid_y)
+
     subX =[]
-    csv_writer.write("X: "+ ",")
     for idx,x in enumerate(mid_x):
-        csv_writer.write(str(x)+ ",")
         if idx>0:
             subX.append(mid_x[idx] - mid_x[idx-1])
+    
+    mid_x_std = np.std(np.array(mid_x))
+    mid_x_mean = np.mean(np.array(mid_x))
+    
+    abs_subX = np.abs(np.array(subX))
+    subX_std = np.std(abs_subX)
+    subX_mean = np.mean(abs_subX)
+    
 
-    csv_writer.write('\n'+"subX: "+ ",")
-    for idx,x in enumerate(subX):
-        csv_writer.write(str(x)+ ",")
+    mid_x = mid_x.tolist()
+    mid_y = mid_y.tolist()
+    sipne_boxes = ori_sipne_boxes.copy()
+    #sipne_boxes = sipne_boxes.tolist()
 
-    subX = np.array(subX)
-    abs_subX = np.abs(subX)
-    std = np.std(abs_subX)
-    mean = np.mean(abs_subX)
-    csv_writer.write('\n'+"mean: "+","+ str(mean)+","+"std: "+","+ str(std)+'\n')
-    #csv_writer.close()
+
+    if(csv_flag):
+        csv_writer.write(file_name+ '\n')        
+        csv_writer.write("X: "+ ",")
+        for idx,x in enumerate(mid_x):
+            csv_writer.write(str(x)+ ",")
+       
+        csv_writer.write('\n'+"Xmean: "+","+ str(mid_x_mean)+","+"Xstd: "+","+ str(mid_x_std))
+
+        csv_writer.write('\n'+"subX: "+ ",")
+        for idx,x in enumerate(subX):
+            csv_writer.write(str(x)+ ",")
+
+        csv_writer.write('\n'+"subX_mean: "+","+ str(subX_mean)+","+"subX_std: "+","+ str(subX_std)+'\n')
+
+    #截彎取直
+    while(subX_std>15):
+        print("remove middle")
+        ever_break_flag = True
+        for idx in range(0,len(subX)-1):
+            if(abs(subX[idx]) > subX_mean+subX_std  and abs(subX[idx] + subX[idx+1]) <subX_mean+subX_std):
+                ever_break_flag =False
+                subX[idx] = subX[idx] + subX[idx+1]
+                subX.remove(subX[idx+1])
+                mid_x.remove(mid_x[idx +1])
+                mid_y.remove(mid_y[idx +1])
+                #sipne_boxes.remove(sipne_boxes.index(sipne_boxes[idx +1]))
+                del sipne_boxes[idx +1]
+        if(ever_break_flag):
+            break
+        abs_subX = np.abs(np.array(subX))
+        subX_std = np.std(abs_subX)
+        subX_mean = np.mean(abs_subX)
+        if(csv_flag):      
+            csv_writer.write('Remove_middle_born\n')
+            csv_writer.write("X: "+ ",")
+            for idx,x in enumerate(mid_x):
+                csv_writer.write(str(x)+ ",")
+            
+            mid_x_std = np.std(np.array(mid_x))
+            mid_x_mean = np.mean(np.array(mid_x))
+            csv_writer.write('\n'+"Xmean: "+","+ str(mid_x_mean)+","+"Xstd: "+","+ str(mid_x_std))
+
+            csv_writer.write('\n'+"subX: "+ ",")
+            for idx,x in enumerate(subX):
+                csv_writer.write(str(x)+ ",")
+
+            csv_writer.write('\n'+"subX_mean: "+","+ str(subX_mean)+","+"subX_std: "+","+ str(subX_std)+'\n')
+
+    #去頭
+    while(subX_std>15 and abs(subX[0]) > subX_mean+subX_std  and abs(subX[0] + subX[1]) > subX_mean+subX_std):
+        print("remove head")
+        subX.remove(subX[0])
+        mid_x.remove(mid_x[0])
+        mid_y.remove(mid_y[0])
+        #sipne_boxes.remove(sipne_boxes.index(sipne_boxes[0]))
+        del sipne_boxes[0]
+        abs_subX = np.abs(np.array(subX))
+        subX_std = np.std(abs_subX)
+        subX_mean = np.mean(abs_subX)
+        if(csv_flag):      
+            csv_writer.write('Remove_top_born\n')
+            csv_writer.write("X: "+ ",")
+            for idx,x in enumerate(mid_x):
+                csv_writer.write(str(x)+ ",")
+            
+            mid_x_std = np.std(np.array(mid_x))
+            mid_x_mean = np.mean(np.array(mid_x))
+            csv_writer.write('\n'+"Xmean: "+","+ str(mid_x_mean)+","+"Xstd: "+","+ str(mid_x_std))
+
+            csv_writer.write('\n'+"subX: "+ ",")
+            for idx,x in enumerate(subX):
+                csv_writer.write(str(x)+ ",")
+
+            csv_writer.write('\n'+"subX_mean: "+","+ str(subX_mean)+","+"subX_std: "+","+ str(subX_std)+'\n')
+
+    #去尾
+    while(subX_std>15 and abs(subX[-1]) > subX_mean+subX_std  and abs(subX[-1] + subX[-2]) > subX_mean+subX_std):
+        print("remove tail")
+        subX.remove(subX[-1])
+        mid_x.remove(mid_x[-1])
+        mid_y.remove(mid_y[-1])
+        #sipne_boxes.remove(sipne_boxes[-1])
+        del sipne_boxes[-1]
+        abs_subX = np.abs(np.array(subX))
+        subX_std = np.std(abs_subX)
+        subX_mean = np.mean(abs_subX)
+        if(csv_flag):      
+            csv_writer.write('Remove_bottom_born\n')
+            csv_writer.write("X: "+ ",")
+            for idx,x in enumerate(mid_x):
+                csv_writer.write(str(x)+ ",")
+            
+            mid_x_std = np.std(np.array(mid_x))
+            mid_x_mean = np.mean(np.array(mid_x))
+            csv_writer.write('\n'+"Xmean: "+","+ str(mid_x_mean)+","+"Xstd: "+","+ str(mid_x_std))
+
+            csv_writer.write('\n'+"subX: "+ ",")
+            for idx,x in enumerate(subX):
+                csv_writer.write(str(x)+ ",")
+
+            csv_writer.write('\n'+"subX_mean: "+","+ str(subX_mean)+","+"subX_std: "+","+ str(subX_std)+'\n')
+
+
+
+    #刪掉疊合率太高的框格
+    box_idx=0
+    box_num = len(sipne_boxes)
+    while (box_idx < box_num - 1) :
+        IOU = bb_intersection_over_union(sipne_boxes[box_idx], sipne_boxes[box_idx+1])
+        if IOU > 1/4:
+            del sipne_boxes[box_idx+1]
+            mid_x.remove(mid_x[box_idx+1])
+            mid_y.remove(mid_y[box_idx+1])
+        box_idx +=1
+        box_num = len(sipne_boxes)
+
+
+    sipne_boxes = np.array(sipne_boxes)
+    return sipne_boxes,mid_x,mid_y
 
 if __name__ == '__main__':
        
@@ -412,24 +541,20 @@ if __name__ == '__main__':
             t = tt.mean(0)
             temp_spine.append(t.astype(int).tolist())
         spine_box_list = np.array(temp_spine)
-        print(spine_box_list)
+        
 
 
         spine_box_list = sorted(spine_box_list, key = lambda x : x[0])   # sort by y1       
-        print("spine Num : " +str(len(spine_box_list)))        
-        borns_mid_x = np.array([],dtype = np.int)
-        borns_mid_y = np.array([],dtype = np.int)
-        for spine_box in spine_box_list:
-            y1, x1, y2, x2 = spine_box
-            temp_mid_x = int((x1+x2)/2)
-            temp_mid_y = int( (y1+y2)/2)
-            borns_mid_x = np.append(borns_mid_x, temp_mid_x)    
-            borns_mid_y = np.append(borns_mid_y,temp_mid_y)
+               
+        
+        
+
 
 
         
-        borns_modify(each_dir,borns_mid_x,csv_path)
-
+        spine_box_list,borns_mid_x,borns_mid_y = borns_modify(spine_box_list,True,each_dir,csv_path)
+        print(spine_box_list)
+        print("spine Num : " +str(len(spine_box_list))) 
 
         # poly = np.poly1d(np.polyfit(borns_mid_x, borns_mid_y, 1)) #以x算y , 三次多項式
         poly = np.poly1d(np.polyfit(borns_mid_y, borns_mid_x, 3)) #以y算x , 三次多項式
