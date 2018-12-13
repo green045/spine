@@ -101,7 +101,7 @@ def bb_intersection_over_union(boxA, boxB):
     return iou
 
 
-def borns_modify(ori_sipne_boxes,csv_flag = False,file_name="",csv_path =""):
+def borns_modify_by_x(ori_sipne_boxes,csv_flag = False,file_name="",csv_path =""):
     
 
     mid_x = np.array([],dtype = np.int)
@@ -250,6 +250,63 @@ def borns_modify(ori_sipne_boxes,csv_flag = False,file_name="",csv_path =""):
 
 
     sipne_boxes = np.array(sipne_boxes)
+    return sipne_boxes,mid_x,mid_y
+
+
+
+
+def borns_add_boxes(ori_sipne_boxes,ori_mid_x,ori_mid_y):
+    
+
+    '''
+    先算格子平均大小
+    y軸的mean std
+    間隔太大，中間插入格子
+    #未做 加減最下面格子
+    '''
+    avg_box_w = 0
+    avg_box_h = 0    
+    for spine_box in ori_sipne_boxes:
+        y1, x1, y2, x2 = spine_box
+        avg_box_w += (x2-x1)
+        avg_box_h += (y2-y1)
+
+    avg_box_w = int(avg_box_w) / len(ori_sipne_boxes)
+    avg_box_h = int(avg_box_h) / len(ori_sipne_boxes) 
+
+
+    #計算擬合曲線
+    poly = np.poly1d(np.polyfit(ori_mid_y, ori_mid_x, 3)) #以y算x , 三次多項式
+
+    sipne_boxes = ori_sipne_boxes.copy()
+    mid_x = ori_mid_x.copy()
+    mid_y = ori_mid_y.copy()
+
+    while(True):        
+        for idx,y in enumerate(mid_y):
+            if idx ==0:
+                continue
+            if (mid_y[idx] - mid_y[idx-1]) > avg_box_h*1.3:
+                temp_mid_y = int(mid_y[idx] + mid_y[idx-1])/2
+                temp_mid_x = np.int(poly(temp_mid_y))
+                left_top_x =  int(temp_mid_x - avg_box_w/2)
+                left_top_y =  int(temp_mid_y - avg_box_h/2)
+                right_btm_x =  int(temp_mid_x + avg_box_w/2)
+                right_btm_y =  int(temp_mid_y + avg_box_h/2)
+                sipne_boxes = np.insert(sipne_boxes,idx,(left_top_y,left_top_x,right_btm_y,right_btm_x),0)
+                mid_x.insert(idx,int(temp_mid_x))
+                mid_y.insert(idx,int(temp_mid_y))
+
+        subY =[]
+        for idx,y in enumerate(mid_y):
+            if idx>0:
+                subY.append(mid_y[idx] - mid_y[idx-1])
+        sub_y_mean = np.mean(np.array(subY))
+        if sub_y_mean <= avg_box_h*1.3:
+            break
+
+    
+
     return sipne_boxes,mid_x,mid_y
 
 if __name__ == '__main__':
@@ -551,15 +608,25 @@ if __name__ == '__main__':
 
 
 
+        #去除一些怪格子
+        spine_box_list,borns_mid_x,borns_mid_y = borns_modify_by_x(spine_box_list,True,each_dir,csv_path)
+
         
-        spine_box_list,borns_mid_x,borns_mid_y = borns_modify(spine_box_list,True,each_dir,csv_path)
+
+
+        #補缺少的格子
+        spine_box_list,borns_mid_x,borns_mid_y = borns_add_boxes(spine_box_list,borns_mid_x,borns_mid_y)
+
         print(spine_box_list)
         print("spine Num : " +str(len(spine_box_list))) 
 
+
+        #計算擬合曲線
         # poly = np.poly1d(np.polyfit(borns_mid_x, borns_mid_y, 1)) #以x算y , 三次多項式
         poly = np.poly1d(np.polyfit(borns_mid_y, borns_mid_x, 3)) #以y算x , 三次多項式
         print(poly)
         csv_writer.write("poly: "+","+ str(poly)+'\n'+'\n'+'\n')
+        
         total_file = os.listdir(each_dir_path)
         total_file = filter(lambda x: x.endswith('png'), total_file) #只抓png檔
         for file_name in sorted(total_file):
