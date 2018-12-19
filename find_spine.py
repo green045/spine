@@ -255,14 +255,14 @@ def borns_modify_by_x(ori_sipne_boxes,csv_flag = False,file_name="",csv_path =""
 
 
 
-def borns_add_boxes(ori_sipne_boxes,ori_mid_x,ori_mid_y):
-    
+def borns_add_boxes(ori_sipne_boxes,ori_mid_x,ori_mid_y):    
 
     '''
     先算格子平均大小
     y軸的mean std
     間隔太大，中間插入格子
-    #未做 加減最下面格子
+    目前只插入一格
+    #未做 減最下面格子
     '''
     avg_box_w = 0
     avg_box_h = 0    
@@ -287,6 +287,7 @@ def borns_add_boxes(ori_sipne_boxes,ori_mid_x,ori_mid_y):
             if idx ==0:
                 continue
             if (mid_y[idx] - mid_y[idx-1]) > avg_box_h*1.3:
+                #只針對間隔一格
                 temp_mid_y = int(mid_y[idx] + mid_y[idx-1])/2
                 temp_mid_x = np.int(poly(temp_mid_y))
                 left_top_x =  int(temp_mid_x - avg_box_w/2)
@@ -305,7 +306,18 @@ def borns_add_boxes(ori_sipne_boxes,ori_mid_x,ori_mid_y):
         if sub_y_mean <= avg_box_h*1.3:
             break
 
-    
+    box_num = len(sipne_boxes)
+    while(box_num<5):
+        temp_mid_y = int(mid_y[-1] + avg_box_h*0.8)
+        temp_mid_x = np.int(poly(temp_mid_y))
+        left_top_x =  int(temp_mid_x - avg_box_w/2)
+        left_top_y =  int(temp_mid_y - avg_box_h/2)
+        right_btm_x =  int(temp_mid_x + avg_box_w/2)
+        right_btm_y =  int(temp_mid_y + avg_box_h/2)
+        sipne_boxes = np.insert(sipne_boxes,box_num,(left_top_y,left_top_x,right_btm_y,right_btm_x),0)
+        mid_x.insert(box_num,int(temp_mid_x))
+        mid_y.insert(box_num,int(temp_mid_y))
+        box_num = len(sipne_boxes)
 
     return sipne_boxes,mid_x,mid_y
 
