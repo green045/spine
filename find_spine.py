@@ -307,8 +307,8 @@ def borns_add_boxes(ori_sipne_boxes,ori_mid_x,ori_mid_y):
             break
 
     box_num = len(sipne_boxes)
-    while(box_num<5):
-        temp_mid_y = int(mid_y[-1] + avg_box_h*0.8)
+    while(box_num<5 and box_num>2):
+        temp_mid_y = int(mid_y[-1] + avg_box_h*0.9)
         temp_mid_x = np.int(poly(temp_mid_y))
         left_top_x =  int(temp_mid_x - avg_box_w/2)
         left_top_y =  int(temp_mid_y - avg_box_h/2)
@@ -371,8 +371,9 @@ if __name__ == '__main__':
     total_dir = os.listdir(front_dir_path)
     total_dir = filter(lambda x: x.endswith('png'), total_dir)
 
+    
+    for each_front_img in sorted(total_dir):        
 
-    for each_front_img in sorted(total_dir):
         gray_image=cv2.imread('{}/{}'.format(front_dir_path, each_front_img), 0)
 
         ret,thresh1=cv2.threshold(gray_image,254,255,cv2.THRESH_BINARY)
@@ -641,28 +642,29 @@ if __name__ == '__main__':
         
         total_file = os.listdir(each_dir_path)
         total_file = filter(lambda x: x.endswith('png'), total_file) #只抓png檔
-        for file_name in sorted(total_file):
-            
+        
+        for file_name in sorted(total_file):            
+
             cv2_img = cv2.imread(os.path.join(each_dir_path, file_name))
             #print(file_name)
             cv2_rect =cv2_img.copy()
-            draw_image = cv2_rect[real_y:, :, :]
+            #draw_image = cv2_rect[real_y:, :, :]
+            cv2.line(cv2_rect,(0,real_y),(cv2_rect.shape[1],real_y),(255,0,0),5)
             label ="L"
             i = 1            
             for idx,spine_box in enumerate(spine_box_list):
                 y1, x1, y2, x2 = spine_box
-                cv2.circle(draw_image, (borns_mid_x[idx], borns_mid_y[idx]), 3, (0, 255, 0), -1, 8, 0)
-                cv2.rectangle(draw_image,(x1,y1),(x2,y2),(0,255,0),2)
-                cv2.putText(draw_image,label+str(i),(x2,y1), cv2.FONT_HERSHEY_SIMPLEX, 0.7,(0,0,255),2,cv2.LINE_AA)                
+                cv2.circle(cv2_rect, (borns_mid_x[idx], real_y+borns_mid_y[idx]), 3, (0, 255, 0), -1, 8, 0)
+                cv2.rectangle(cv2_rect,(x1,real_y+y1),(x2,real_y+y2),(0,255,0),2)
+                cv2.putText(cv2_rect,label+str(i),(x2,real_y+y1), cv2.FONT_HERSHEY_SIMPLEX, 0.7,(0,0,255),2,cv2.LINE_AA)                
                 i +=1
-            #以x算y
-            # for t in range(0, draw_image.shape[1], 1):
-            #     y_ = np.int(poly(t))
-            #     cv2.circle(draw_image, (t, y_), 1, (0, 0, 255), 1, 8, 0)
-            #以y算x
+            #以y算x 畫出每一點
+            '''
             for t in range(0, draw_image.shape[0], 1):
                 x_ = np.int(poly(t))
                 cv2.circle(draw_image, (x_, t), 2, (0, 0, 255), -1, 8, 0)
+            '''
+            #cv2_rect[real_y:, :, :] = draw_image
             img_save_path = os.path.join(save_dir_path, 'res_'+file_name[4:])
-            cv2.imwrite(img_save_path, draw_image)
+            cv2.imwrite(img_save_path, cv2_rect)
     csv_writer.close()
